@@ -32,7 +32,6 @@ export function createPeerConnection(ws) {
     ],
   });
 
-  // Queue to hold ICE candidates if WebSocket is not yet open
   const iceCandidateQueue = [];
 
   // Handle ICE candidates
@@ -40,12 +39,10 @@ export function createPeerConnection(ws) {
     if (event.candidate) {
       console.log("Generated ICE candidate:", event.candidate);
 
-      // If WebSocket is open, send immediately
       if (ws.readyState === WebSocket.OPEN) {
         console.log("Sending ICE candidate:", event.candidate);
         ws.send(JSON.stringify({ type: "candidate", data: event.candidate }));
       } else {
-        // Otherwise, queue the candidate to send later
         iceCandidateQueue.push(event.candidate);
       }
     } else {
@@ -53,13 +50,12 @@ export function createPeerConnection(ws) {
     }
   };
 
-  // Check if WebSocket is connected and send queued candidates if any
   ws.onopen = () => {
     console.log("WebSocket connected, sending queued ICE candidates.");
     iceCandidateQueue.forEach((candidate) => {
       ws.send(JSON.stringify({ type: "candidate", data: candidate }));
     });
-    iceCandidateQueue.length = 0; // Clear the queue after sending
+    iceCandidateQueue.length = 0;
   };
 
   // Handle data channel
