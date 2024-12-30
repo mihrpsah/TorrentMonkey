@@ -21,8 +21,8 @@ var clients = make(map[*websocket.Conn]bool)
 var broadcast = make(chan Message)
 
 type Message struct {
-	Type string `json:"type"`
-	Data string `json:"data"`
+	Type string      `json:"type"`
+	Data interface{} `json:"data"` // Use interface{} to handle any data type
 }
 
 func handleConnections(w http.ResponseWriter, r *http.Request) {
