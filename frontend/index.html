@@ -1,13 +1,111 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>TorrentMonkey</title>
-        <link rel="stylesheet" href="styles.css" />
-    </head>
-    <body>
-        <h1>Welcome to TorrentMonkey</h1>
-        <script type="module" src="app.js"></script>
-    </body>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Torrent UI Mockup</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div id="container">
+        <div id="sidebar">
+            <h3>TorrentMonkey</h3>
+            <ul>
+                <li>Speed</li>
+                <li>DLive</li>
+                <li>Torrents (13)</li>
+                <li>Labels</li>
+                <li>Feeds</li>
+                <li>Devices (0)</li>
+            </ul>
+        </div>
+        <div id="main">
+            <div id="header">
+                <div>
+                    <button id="hamburger">&#9776;</button>
+                    <button>File</button>
+                    <button>Options</button>
+                    <button>Help</button>
+                </div>
+                <input type="text" placeholder="Search">
+            </div>
+            <div id="torrent-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Size</th>
+                            <th>Status</th>
+                            <th>Down Speed</th>
+                            <th>Up Speed</th>
+                            <th>ETA</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Water LP - Exclusive Remix</td>
+                            <td>49.0 MB</td>
+                            <td class="status">
+                                <div class="status-bar"><span style="width: 58%;"></span></div>
+                                58.3%
+                            </td>
+                            <td>260.4 kB/s</td>
+                            <td>1.5 kB/s</td>
+                            <td>53m 19s</td>
+                        </tr>
+                        <tr>
+                            <td>Killswitch Documentary</td>
+                            <td>194 MB</td>
+                            <td class="status">
+                                <div class="status-bar"><span style="width: 50%;"></span></div>
+                                50.1%
+                            </td>
+                            <td>26.9 kB/s</td>
+                            <td>2.5 kB/s</td>
+                            <td>19m 23s</td>
+                        </tr>
+                        <tr>
+                            <td>Drop Science</td>
+                            <td>135 MB</td>
+                            <td class="status">
+                                <div class="status-bar"><span style="width: 52%;"></span></div>
+                                52.2%
+                            </td>
+                            <td>1.1 MB/s</td>
+                            <td>2.7 MB/s</td>
+                            <td>1m 6s</td>
+                        </tr>
+                        <!-- Add more dummy rows here -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="playback">
+                <div>
+                    <strong>Playback</strong>
+                    <div>Media player.mp4</div>
+                    <div>Duration: 4m 40s</div>
+                </div>
+                <iframe width="560" height="315" 
+        src="http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4  " 
+        frameborder="0" 
+        allow="autoplay; encrypted-media" 
+        allowfullscreen>
+</iframe>
+
+            </div>
+        </div>
+    </div>
+    <script type="module" src="app.js"></script>
+    <script>
+        const hamburger = document.getElementById('hamburger');
+        const sidebar = document.getElementById('sidebar');
+
+        hamburger.addEventListener('click', () => {
+            sidebar.classList.toggle('hidden');
+        });
+    </script>
+</body>
+
 </html>
