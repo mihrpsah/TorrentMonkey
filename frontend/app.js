@@ -30,15 +30,35 @@ document.addEventListener("DOMContentLoaded", () => {
       console.log('Initializing WebTorrent client...');
       addMessageToUI('System', 'Initializing WebTorrent client...');
       
-      // Create WebTorrent client with specific configuration to reduce WebRTC dependencies
+      // Create WebTorrent client with enhanced configuration for better streaming
       const config = {
         tracker: {
           wrtc: false, // Disable WebRTC if possible
           announce: [
             'wss://tracker.openwebtorrent.com',
-            'wss://tracker.btorrent.xyz'
+            'wss://tracker.btorrent.xyz',
+            'wss://tracker.fastcast.nz'
           ]
-        }
+        },
+        // Configure lower announce interval to find peers faster
+        announceList: [
+          ['wss://tracker.openwebtorrent.com'],
+          ['wss://tracker.btorrent.xyz'],
+          ['wss://tracker.fastcast.nz']
+        ],
+        // More aggressive DHT settings
+        dht: { 
+          bootstrap: [
+            'router.bittorrent.com:6881',
+            'dht.transmissionbt.com:6881'
+          ]
+        },
+        // Set to false to use TCPPool for better compatibility
+        webSeeds: true,
+        // More aggressive connection settings
+        maxConns: 100,
+        // Better support for streaming
+        strategy: 'rarest'
       };
       
       torrentClient = new WebTorrent(config);
@@ -107,8 +127,23 @@ document.addEventListener("DOMContentLoaded", () => {
         videoPlayerEl = videoEl;
       }
       
-      // Load the new torrent
-      torrentClient.add(magnetURI, torrent => {
+      // Advanced torrent options for better streaming
+      const torrentOptions = {
+        announce: [
+          'wss://tracker.openwebtorrent.com',
+          'wss://tracker.btorrent.xyz',
+          'wss://tracker.fastcast.nz',
+          'wss://tracker.webtorrent.dev',
+        ],
+        path: '/tmp/webtorrent', // Temporary storage path
+        destroyStoreOnDestroy: true, // Clean up when destroyed
+        strategy: 'sequential' // Important for streaming - get pieces in order
+      };
+      
+      console.log("Adding torrent with streaming options:", torrentOptions);
+      
+      // Load the new torrent with streaming-optimized options
+      torrentClient.add(magnetURI, torrentOptions, torrent => {
         console.log("Torrent added, info:", torrent);
         currentTorrent = torrent;
         
@@ -151,7 +186,7 @@ document.addEventListener("DOMContentLoaded", () => {
           console.log("Torrent metadata received");
           addMessageToUI('System', `Torrent contains ${torrent.files.length} files`);
           
-          // Setup video streaming
+          // Setup video streaming with immediate start
           setupTorrentStreaming(torrent);
         });
         
@@ -162,6 +197,24 @@ document.addEventListener("DOMContentLoaded", () => {
           
           // Handle the completed torrent
           handleCompletedTorrent(torrent);
+        });
+        
+        // Listen for warning events
+        torrent.on('warning', (warning) => {
+          console.warn('Torrent warning:', warning);
+        });
+        
+        // Listen for wire (peer connection) events for debugging
+        torrent.on('wire', (wire, addr) => {
+          console.log(`Connected to peer: ${addr}`);
+          
+          // Listen for download events on this peer
+          wire.on('download', (downloaded) => {
+            // Each time we get data from this peer
+            if (downloaded > 1000000) { // Only log significant chunks (> 1MB)
+              console.log(`Downloaded ${formatBytes(downloaded)} from ${addr}`);
+            }
+          });
         });
       });
     } catch (err) {
@@ -176,7 +229,8 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // Exit early if torrent is already done
     if (torrent.done || torrent.progress === 1) {
-      console.log("Torrent is already complete, skipping streaming setup");
+      console.log("Torrent is already complete, using completed torrent handler");
+      handleCompletedTorrent(torrent);
       return;
     }
     
@@ -204,16 +258,18 @@ document.addEventListener("DOMContentLoaded", () => {
       console.log("Streaming file:", largestFile.name, formatBytes(largestFile.length));
       addMessageToUI('System', `Streaming file: ${largestFile.name} (${formatBytes(largestFile.length)})`);
       
-      // Prioritize beginning of the file for faster start
-      if (largestFile.length > 10 * 1024 * 1024) { // If larger than 10MB
-        console.log("Prioritizing beginning of file for faster playback");
-        // Use select() with high priority (1) to prioritize this file
-        largestFile.select(1);
-        
-        // Create a stream with range to prioritize the beginning
-        const startPieces = Math.ceil(torrent.pieces.length * 0.05);
-        console.log(`Prioritizing first ${startPieces} pieces of ${torrent.pieces.length} total`);
-      }
+      // Simplified prioritization approach
+      console.log("Setting up file prioritization");
+      
+      // First, deselect all files except the one we want to stream
+      torrent.files.forEach(file => {
+        if (file !== largestFile) {
+          file.deselect();
+        }
+      });
+      
+      // Select our streaming file with high priority
+      largestFile.select(1);
       
       // Get video player and status
       const videoEl = videoPlayerEl;
@@ -228,9 +284,6 @@ document.addEventListener("DOMContentLoaded", () => {
       
       // Log file download progress information
       addMessageToUI('System', `Starting video playback. Initial download: ${Math.round(largestFile.progress * 100)}%`);
-      
-      // Variable to track if we're using the fallback
-      let usingFallback = false;
       
       // Add event listeners for video events
       videoEl.addEventListener('canplay', () => {
@@ -265,73 +318,33 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       
       videoEl.addEventListener('error', (e) => {
-        // Only process error if not already using fallback
-        if (!usingFallback) {
-          console.error('Video error:', e);
-          if (videoStatusEl) {
-            videoStatusEl.textContent = `Video error: ${videoEl.error ? videoEl.error.message : 'Unknown error'}`;
-            videoStatusEl.classList.add('error');
-          }
-          
-          // Try fallback on error
-          tryStreamingFallback();
+        console.error('Video error:', e);
+        if (videoStatusEl) {
+          videoStatusEl.textContent = `Video error: ${videoEl.error ? videoEl.error.message : 'Unknown error'}`;
+          videoStatusEl.classList.add('error');
         }
       });
       
-      // Double-check that torrent hasn't completed while we were setting up
-      if (torrent.done || torrent.progress === 1) {
-        console.log("Torrent completed while setting up streaming, using blob instead");
-        tryStreamingFallback();
-        return;
-      }
-      
+      // Use a simple and stable approach - just use the streaming method
       try {
-        // Start with the simplest approach: direct stream to video element via appendTo
-        largestFile.appendTo(videoEl, (err) => {
+        console.log("Using streamTo method for reliable streaming");
+        
+        // Use a simple approach by using renderTo, which is more reliable
+        largestFile.renderTo(videoEl, (err) => {
           if (err) {
-            console.error("Error appending video:", err);
+            console.error("Error rendering video:", err);
             if (videoStatusEl) {
               videoStatusEl.textContent = `Error: ${err.message || 'Could not play video'}`;
               videoStatusEl.classList.add('error');
             }
             addMessageToUI('Error', `Video playback error: ${err.message}`);
-            
-            // Try fallback method
-            tryStreamingFallback();
           } else {
-            console.log("Video appended successfully");
+            console.log("Video rendering started successfully");
           }
         });
       } catch (e) {
         console.error("Exception streaming video:", e);
-        tryStreamingFallback();
-      }
-      
-      // Fallback streaming method if appendTo fails
-      function tryStreamingFallback() {
-        if (usingFallback) return; // Prevent multiple fallback attempts
-        usingFallback = true;
-        
-        addMessageToUI('System', 'Trying alternate playback method...');
-        
-        // Create blob from file when enough has downloaded
-        largestFile.getBlobURL((err, url) => {
-          if (err) {
-            console.error("Error creating blob URL:", err);
-            if (videoStatusEl) {
-              videoStatusEl.textContent = `Error: ${err.message || 'Could not prepare video'}`;
-              videoStatusEl.classList.add('error');
-            }
-          } else {
-            console.log("Created blob URL for playback");
-            videoEl.src = url;
-            videoEl.load();
-            videoEl.play().catch(e => {
-              console.warn("Auto-play prevented:", e);
-              addMessageToUI('System', 'Please click play to start video');
-            });
-          }
-        });
+        addMessageToUI('Error', `Streaming error: ${e.message}`);
       }
       
       // Handle download progress specifically for this file
@@ -385,48 +398,39 @@ document.addEventListener("DOMContentLoaded", () => {
       videoStatusEl.className = 'video-status';
     }
     
-    // Store current playback position if video is already playing
-    let currentTime = 0;
-    if (videoEl && !videoEl.paused) {
-      currentTime = videoEl.currentTime;
-      console.log("Saved playback position:", currentTime);
-    }
-    
-    // Get blob URL for the completed file
-    largestFile.getBlobURL((err, url) => {
-      if (err) {
-        console.error("Error creating blob URL for completed file:", err);
-        addMessageToUI('Error', `Failed to process completed file: ${err.message}`);
-        return;
-      }
-      
-      console.log("Created blob URL for completed file");
-      
-      // Set the source of the video
-      videoEl.src = url;
-      videoEl.load();
-      
-      // Restore playback position if we had one
-      if (currentTime > 0) {
-        videoEl.currentTime = currentTime;
-        console.log("Restored playback position to:", currentTime);
-      }
-      
-      // Update status if we have one
-      if (videoStatusEl) {
-        videoStatusEl.textContent = 'Video ready - playback started';
-        videoStatusEl.classList.add('success');
-        setTimeout(() => {
-          if (videoStatusEl) videoStatusEl.style.opacity = '0';
-        }, 3000);
-      }
-      
-      // Try to play automatically
-      videoEl.play().catch(e => {
-        console.warn("Auto-play prevented for completed video:", e);
-        addMessageToUI('System', 'Please click play to start video');
+    // For completed torrents, we'll just use renderTo which is most stable
+    try {
+      console.log("Using renderTo for completed file playback");
+      largestFile.renderTo(videoEl, (err) => {
+        if (err) {
+          console.error("Error rendering completed video:", err);
+          addMessageToUI('Error', `Video rendering error: ${err.message}`);
+          
+          // If renderTo fails, try a simple file path URL
+          console.log("Trying stored file path for playback");
+          if (largestFile.path) {
+            videoEl.src = largestFile.path;
+            videoEl.load();
+            videoEl.play().catch(e => {
+              console.warn("Auto-play prevented:", e);
+              addMessageToUI('System', 'Please click play to start video');
+            });
+          }
+        } else {
+          console.log("Completed video rendered successfully");
+          if (videoStatusEl) {
+            videoStatusEl.textContent = 'Video ready - playback started';
+            videoStatusEl.classList.add('success');
+            setTimeout(() => {
+              if (videoStatusEl) videoStatusEl.style.opacity = '0';
+            }, 3000);
+          }
+        }
       });
-    });
+    } catch (e) {
+      console.error("Error handling completed torrent:", e);
+      addMessageToUI('Error', `Failed to process completed file: ${e.message}`);
+    }
   }
   
   // Update torrent statistics in the UI
