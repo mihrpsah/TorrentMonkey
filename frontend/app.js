@@ -325,9 +325,9 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
       
-      // Use a simple and stable approach - just use the streaming method
+      // Use a simple and stable approach - just use the renderTo method
       try {
-        console.log("Using streamTo method for reliable streaming");
+        console.log("Using renderTo method for reliable streaming");
         
         // Use a simple approach by using renderTo, which is more reliable
         largestFile.renderTo(videoEl, (err) => {
@@ -398,26 +398,40 @@ document.addEventListener("DOMContentLoaded", () => {
       videoStatusEl.className = 'video-status';
     }
     
-    // For completed torrents, we'll just use renderTo which is most stable
+    // For completed torrents, we'll just create a Blob URL and use it
     try {
-      console.log("Using renderTo for completed file playback");
-      largestFile.renderTo(videoEl, (err) => {
+      console.log("Creating Blob URL for completed file playback");
+      
+      // Get the file as a Blob and create a URL
+      largestFile.getBlob((err, blob) => {
         if (err) {
-          console.error("Error rendering completed video:", err);
-          addMessageToUI('Error', `Video rendering error: ${err.message}`);
+          console.error("Error getting blob:", err);
+          addMessageToUI('Error', `Error preparing file: ${err.message}`);
           
-          // If renderTo fails, try a simple file path URL
-          console.log("Trying stored file path for playback");
-          if (largestFile.path) {
-            videoEl.src = largestFile.path;
-            videoEl.load();
-            videoEl.play().catch(e => {
-              console.warn("Auto-play prevented:", e);
-              addMessageToUI('System', 'Please click play to start video');
-            });
-          }
+          // Fallback to renderTo if blob fails
+          console.log("Falling back to renderTo method");
+          largestFile.renderTo(videoEl, (err2) => {
+            if (err2) {
+              console.error("Fallback renderTo also failed:", err2);
+              addMessageToUI('Error', `Fallback method also failed: ${err2.message}`);
+            }
+          });
         } else {
-          console.log("Completed video rendered successfully");
+          // Create a URL from the blob
+          const url = URL.createObjectURL(blob);
+          console.log("Blob URL created:", url);
+          
+          // Set the video source to the blob URL
+          videoEl.src = url;
+          videoEl.load();
+          
+          // Try to autoplay the video (may be blocked by browser)
+          videoEl.play().catch(e => {
+            console.warn("Autoplay prevented:", e);
+            addMessageToUI('System', 'Please click play to start video');
+          });
+          
+          console.log("Completed video playback started");
           if (videoStatusEl) {
             videoStatusEl.textContent = 'Video ready - playback started';
             videoStatusEl.classList.add('success');
@@ -425,6 +439,11 @@ document.addEventListener("DOMContentLoaded", () => {
               if (videoStatusEl) videoStatusEl.style.opacity = '0';
             }, 3000);
           }
+          
+          // Clean up the URL when the video is unloaded
+          videoEl.addEventListener('unload', () => {
+            URL.revokeObjectURL(url);
+          });
         }
       });
     } catch (e) {
