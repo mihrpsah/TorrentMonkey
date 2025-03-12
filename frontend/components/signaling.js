@@ -1,25 +1,52 @@
 export function setupWebSocket(url) {
-  const ws = new WebSocket(url);
-
-  ws.onopen = () => {
-    console.log("WebSocket connection established.");
-  };
-
-  ws.onmessage = (event) => {
-    const message = JSON.parse(event.data);
-    if (message.type === "candidate") {
-      peerConnection
-        .addIceCandidate(new RTCIceCandidate(message.data))
-        .then(() => console.log("Added ICE candidate."))
-        .catch((err) => console.error("Failed to add ICE candidate:", err));
-    }
-  };
-
-  ws.onerror = (error) => console.error("WebSocket error:", error);
-  ws.onclose = () => {
-    console.warn("WebSocket connection closed. Attempting to reconnect...");
-  };
-
+  let ws = null;
+  let reconnectAttempt = 0;
+  const maxReconnectDelay = 30000; // 30 seconds max delay
+  
+  function connect() {
+    ws = new WebSocket(url);
+    
+    ws.onopen = () => {
+      console.log("WebSocket connection established.");
+      reconnectAttempt = 0; // Reset reconnect attempt counter
+      
+      // Dispatch a custom event that other parts of the app can listen for
+      window.dispatchEvent(new CustomEvent('websocket-connected'));
+    };
+    
+    ws.onerror = (error) => {
+      console.error("WebSocket error:", error);
+    };
+    
+    ws.onclose = (event) => {
+      console.warn(`WebSocket connection closed (${event.code}). Attempting to reconnect...`);
+      
+      // Calculate reconnect delay with exponential backoff
+      const delay = Math.min(Math.pow(2, reconnectAttempt) * 1000, maxReconnectDelay);
+      reconnectAttempt++;
+      
+      console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempt})...`);
+      setTimeout(connect, delay);
+      
+      // Dispatch a custom event that other parts of the app can listen for
+      window.dispatchEvent(new CustomEvent('websocket-disconnected'));
+    };
+    
+    // Add custom send method to handle connection state
+    const originalSend = ws.send;
+    ws.send = function(data) {
+      if (this.readyState === WebSocket.OPEN) {
+        return originalSend.call(this, data);
+      } else {
+        console.warn("Attempted to send message while WebSocket is not open");
+        return false;
+      }
+    };
+  }
+  
+  // Initial connection
+  connect();
+  
   return ws;
 }
 

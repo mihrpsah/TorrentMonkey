@@ -90,8 +90,8 @@ func main() {
 
 	go handleMessages()
 
-	log.Println("Server started on :8080")
-	err := http.ListenAndServe(":8080", nil)
+	log.Println("Server started on :8081")
+	err := http.ListenAndServe(":8081", nil)
 	if err != nil {
 		log.Fatalf("Error starting server: %v", err)
 	}
