@@ -17,7 +17,216 @@ document.addEventListener("DOMContentLoaded", () => {
   // WebTorrent client
   let torrentClient = null;
   let currentTorrent = null;
-
+  
+  // Extract basic media info using the browser's native capabilities
+  function extractBasicMediaInfo(file) {
+    return new Promise((resolve) => {
+      // Create a temporary video element to get basic info
+      const tempVideo = document.createElement('video');
+      tempVideo.style.display = 'none';
+      document.body.appendChild(tempVideo);
+      
+      // Create object URL for the file
+      const objectURL = URL.createObjectURL(file);
+      tempVideo.src = objectURL;
+      
+      // Set up event listeners
+      tempVideo.addEventListener('loadedmetadata', () => {
+        const basicInfo = {
+          duration: tempVideo.duration,
+          resolution: `${tempVideo.videoWidth}×${tempVideo.videoHeight}`,
+          videoCodec: 'Browser native playback',
+          audioCodec: 'Browser native playback',
+          fps: 'Not available in browser API',
+        };
+        
+        // Clean up
+        document.body.removeChild(tempVideo);
+        URL.revokeObjectURL(objectURL);
+        
+        resolve(basicInfo);
+      });
+      
+      // Handle errors
+      tempVideo.addEventListener('error', () => {
+        console.error('Error loading video for basic analysis');
+        document.body.removeChild(tempVideo);
+        URL.revokeObjectURL(objectURL);
+        resolve(null);
+      });
+      
+      // Set a timeout in case the video never loads
+      setTimeout(() => {
+        if (document.body.contains(tempVideo)) {
+          document.body.removeChild(tempVideo);
+          URL.revokeObjectURL(objectURL);
+          resolve(null);
+        }
+      }, 5000);
+      
+      // Try to load the video
+      tempVideo.load();
+    });
+  }
+  
+  // Display media information in the UI
+  function displayMediaInfo(metadata, thumbnails) {
+    if (!metadata) return;
+    
+    // Create or find the media info container
+    let mediaInfoContainer = document.getElementById('media-info-container');
+    if (!mediaInfoContainer) {
+      mediaInfoContainer = document.createElement('div');
+      mediaInfoContainer.id = 'media-info-container';
+      
+      // Find the appropriate place to insert it
+      const videoContainer = document.getElementById('video-container');
+      if (videoContainer && videoContainer.parentNode) {
+        videoContainer.parentNode.insertBefore(mediaInfoContainer, videoContainer.nextSibling);
+      } else {
+        const appContainer = document.querySelector('.app-container');
+        if (appContainer) {
+          appContainer.appendChild(mediaInfoContainer);
+        }
+      }
+    }
+    
+    // Create the content for the media info
+    mediaInfoContainer.className = 'media-info-container';
+    
+    // Construct HTML for the metadata
+    let metadataHTML = '<div class="media-metadata">';
+    metadataHTML += '<h3>Video Information</h3>';
+    metadataHTML += '<table class="metadata-table">';
+    
+    if (metadata.duration) {
+      const formattedDuration = formatDuration(metadata.duration);
+      metadataHTML += `<tr><td>Duration</td><td>${formattedDuration}</td></tr>`;
+    }
+    
+    if (metadata.resolution) {
+      metadataHTML += `<tr><td>Resolution</td><td>${metadata.resolution}</td></tr>`;
+    }
+    
+    if (metadata.bitrate) {
+      metadataHTML += `<tr><td>Bitrate</td><td>${metadata.bitrate}</td></tr>`;
+    }
+    
+    if (metadata.videoCodec) {
+      metadataHTML += `<tr><td>Video Codec</td><td>${metadata.videoCodec}</td></tr>`;
+    }
+    
+    if (metadata.audioCodec) {
+      metadataHTML += `<tr><td>Audio Codec</td><td>${metadata.audioCodec}</td></tr>`;
+    }
+    
+    if (metadata.fps) {
+      metadataHTML += `<tr><td>Frame Rate</td><td>${metadata.fps}</td></tr>`;
+    }
+    
+    metadataHTML += '</table></div>';
+    
+    // Add thumbnails if available
+    let thumbnailsHTML = '';
+    if (thumbnails && thumbnails.length > 0) {
+      thumbnailsHTML = '<div class="media-thumbnails">';
+      thumbnailsHTML += '<h3>Preview Thumbnails</h3>';
+      thumbnailsHTML += '<div class="thumbnail-container">';
+      
+      thumbnails.forEach((thumbnailUrl, index) => {
+        thumbnailsHTML += `<div class="thumbnail">
+          <img src="${thumbnailUrl}" alt="Thumbnail ${index + 1}">
+          <div class="thumbnail-caption">Scene ${index + 1}</div>
+        </div>`;
+      });
+      
+      thumbnailsHTML += '</div></div>';
+    }
+    
+    // Set the HTML
+    mediaInfoContainer.innerHTML = metadataHTML + thumbnailsHTML;
+    
+    // Add CSS styles if not already added
+    if (!document.getElementById('media-info-styles')) {
+      const style = document.createElement('style');
+      style.id = 'media-info-styles';
+      style.textContent = `
+        .media-info-container {
+          margin-top: 20px;
+          padding: 15px;
+          background-color: #f8f9fa;
+          border-radius: 4px;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .media-metadata h3,
+        .media-thumbnails h3 {
+          margin-top: 0;
+          color: #343a40;
+          font-size: 18px;
+        }
+        
+        .metadata-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 15px;
+        }
+        
+        .metadata-table td {
+          padding: 8px;
+          border-bottom: 1px solid #dee2e6;
+        }
+        
+        .metadata-table td:first-child {
+          font-weight: bold;
+          width: 40%;
+        }
+        
+        .thumbnail-container {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+          justify-content: space-around;
+          margin-top: 10px;
+        }
+        
+        .thumbnail {
+          width: 160px;
+          text-align: center;
+        }
+        
+        .thumbnail img {
+          width: 100%;
+          height: auto;
+          border-radius: 3px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        
+        .thumbnail-caption {
+          margin-top: 5px;
+          font-size: 12px;
+          color: #6c757d;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }
+  
+  // Helper function to format duration in HH:MM:SS
+  function formatDuration(seconds) {
+    if (!seconds) return "Unknown";
+    
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    return [
+      hours.toString().padStart(2, '0'),
+      minutes.toString().padStart(2, '0'),
+      secs.toString().padStart(2, '0')
+    ].join(':');
+  }
+  
   // Initialize WebTorrent
   function initWebTorrent() {
     if (typeof WebTorrent === 'undefined') {
@@ -431,12 +640,6 @@ document.addEventListener("DOMContentLoaded", () => {
       console.log("Creating direct Blob URL for playback");
       addMessageToUI('System', 'Preparing video file for playback...');
       
-      // Create a loading indicator while we prepare the blob
-      const loadingEl = document.createElement('div');
-      loadingEl.className = 'download-progress-container';
-      loadingEl.innerHTML = '<div>Preparing video file...</div>';
-      videoContainer.appendChild(loadingEl);
-      
       // Use getBlobURL directly - this avoids the streaming methods that cause conflicts
       largestFile.getBlobURL((err, url) => {
         // Remove the loading indicator
@@ -501,6 +704,26 @@ document.addEventListener("DOMContentLoaded", () => {
           // Update reference to video player
           videoPlayerEl = videoEl;
           
+          // Get media info using browser capabilities if video file
+          if (isVideo(largestFile.name)) {
+            addMessageToUI('System', 'Analyzing media with browser capabilities...');
+            
+            // Get file as blob for analysis
+            largestFile.getBlob((err, blob) => {
+              if (!err && blob) {
+                extractBasicMediaInfo(blob).then(metadata => {
+                  if (metadata) {
+                    console.log("Media analysis complete:", metadata);
+                    addMessageToUI('System', 'Media analysis complete!');
+                    displayMediaInfo(metadata, []); // No thumbnails with basic analysis
+                  }
+                }).catch(error => {
+                  console.error("Error during media analysis:", error);
+                });
+              }
+            });
+          }
+          
           // Try to play (might be blocked by autoplay policy)
           videoEl.load();
           videoEl.play().catch(e => {
@@ -510,12 +733,34 @@ document.addEventListener("DOMContentLoaded", () => {
           
           console.log("Video element created and added to page");
           addMessageToUI('System', 'Video player ready! You can now watch the video.');
+          
+          // Attach metadata loaded event listener for basic info
+          videoEl.addEventListener('loadedmetadata', () => {
+            console.log("Video metadata loaded via HTML5 API");
+            
+            // Create basic metadata from the video element
+            const basicMetadata = {
+              duration: videoEl.duration,
+              resolution: `${videoEl.videoWidth}×${videoEl.videoHeight}`,
+              videoCodec: 'Browser native playback',
+              audioCodec: 'Browser native playback',
+              fps: 'Browser native playback'
+            };
+            
+            // Display this basic metadata
+            displayMediaInfo(basicMetadata, []);
+          });
         }
       });
     } catch (e) {
       console.error("Error handling completed torrent:", e);
       addMessageToUI('Error', `Failed to process completed file: ${e.message}`);
     }
+  }
+  
+  // Helper function to check if a file is a video
+  function isVideo(filename) {
+    return /\.(mp4|mkv|webm|avi|mov|flv|wmv)$/i.test(filename);
   }
   
   // Update torrent statistics in the UI

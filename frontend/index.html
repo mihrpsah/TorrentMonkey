@@ -7,60 +7,59 @@
     <title>TorrentMonkey Streaming</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
+    <!-- No longer using FFmpeg.js -->
 </head>
 
 <body>
-    <div class="container">
-        <header>
-            <h1>TorrentMonkey Streaming</h1>
-        </header>
+    <div class="app-container">
+        <h1>TorrentMonkey</h1>
+        <div class="subtitle">Peer-to-peer video streaming with media analysis</div>
         
-        <main>
-            <section id="content">
-                <div id="video-container" class="video-container"></div>
-                <div id="video-status" class="video-status"></div>
-            </section>
-            
-            <section id="controls">
-                <div class="input-group">
-                    <input type="text" id="magnet-input" placeholder="Enter magnet link or torrent URL">
-                    <button id="load-torrent-btn">Load Torrent</button>
-                </div>
-                
-                <div class="stats-container">
-                    <div class="stat-item">
-                        <span class="stat-label">Status:</span>
-                        <span id="torrent-status">Idle</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Download:</span>
-                        <span id="download-speed">0 B/s</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Upload:</span>
-                        <span id="upload-speed">0 B/s</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Peers:</span>
-                        <span id="peer-count">0</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Progress:</span>
-                        <span id="download-progress">0%</span>
-                    </div>
-                </div>
-            </section>
-            
-            <section id="message-section">
-                <h3>Messages</h3>
-                <div id="message-list" class="message-list"></div>
-            </section>
-        </main>
+        <div class="input-container">
+            <input type="text" id="magnet-input" placeholder="Enter magnet link here..." />
+            <button id="load-torrent-btn">Load Torrent</button>
+        </div>
         
-        <footer>
-            <p>Powered by WebTorrent - Pure JavaScript BitTorrent</p>
-        </footer>
+        <div class="torrent-stats">
+            <div class="stat">
+                <span class="stat-label">Status:</span>
+                <span id="torrent-status">Not loaded</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">Download:</span>
+                <span id="download-speed">0 B/s</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">Upload:</span>
+                <span id="upload-speed">0 B/s</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">Peers:</span>
+                <span id="peer-count">0</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">Progress:</span>
+                <span id="download-progress">0%</span>
+            </div>
+        </div>
+        
+        <div class="video-section">
+            <div id="video-container">
+                <!-- Video player will be inserted here -->
+            </div>
+            <div id="video-status" class="video-status">No video loaded</div>
+        </div>
+        
+        <!-- Messages container -->
+        <div class="message-section">
+            <h3>Console Messages</h3>
+            <div id="message-list" class="message-list"></div>
+        </div>
     </div>
+    
+    <footer>
+        <p>Powered by WebTorrent - Pure JavaScript BitTorrent</p>
+    </footer>
     
     <script src="app.js"></script>
 </body>
