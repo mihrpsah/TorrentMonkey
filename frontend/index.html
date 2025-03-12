@@ -4,108 +4,65 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Torrent UI Mockup</title>
+    <title>TorrentMonkey Streaming</title>
     <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
 </head>
 
 <body>
-    <div id="container">
-        <div id="sidebar">
-            <h3>TorrentMonkey</h3>
-            <ul>
-                <li>Speed</li>
-                <li>DLive</li>
-                <li>Torrents (13)</li>
-                <li>Labels</li>
-                <li>Feeds</li>
-                <li>Devices (0)</li>
-            </ul>
-        </div>
-        <div id="main">
-            <div id="header">
-                <div>
-                    <button id="hamburger">&#9776;</button>
-                    <button>File</button>
-                    <button>Options</button>
-                    <button>Help</button>
+    <div class="container">
+        <header>
+            <h1>TorrentMonkey Streaming</h1>
+        </header>
+        
+        <main>
+            <section id="content">
+                <div id="video-container" class="video-container"></div>
+                <div id="video-status" class="video-status"></div>
+            </section>
+            
+            <section id="controls">
+                <div class="input-group">
+                    <input type="text" id="magnet-input" placeholder="Enter magnet link or torrent URL">
+                    <button id="load-torrent-btn">Load Torrent</button>
                 </div>
-                <input type="text" placeholder="Search">
-            </div>
-            <div id="torrent-table">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Size</th>
-                            <th>Status</th>
-                            <th>Down Speed</th>
-                            <th>Up Speed</th>
-                            <th>ETA</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Water LP - Exclusive Remix</td>
-                            <td>49.0 MB</td>
-                            <td class="status">
-                                <div class="status-bar"><span style="width: 58%;"></span></div>
-                                58.3%
-                            </td>
-                            <td>260.4 kB/s</td>
-                            <td>1.5 kB/s</td>
-                            <td>53m 19s</td>
-                        </tr>
-                        <tr>
-                            <td>Killswitch Documentary</td>
-                            <td>194 MB</td>
-                            <td class="status">
-                                <div class="status-bar"><span style="width: 50%;"></span></div>
-                                50.1%
-                            </td>
-                            <td>26.9 kB/s</td>
-                            <td>2.5 kB/s</td>
-                            <td>19m 23s</td>
-                        </tr>
-                        <tr>
-                            <td>Drop Science</td>
-                            <td>135 MB</td>
-                            <td class="status">
-                                <div class="status-bar"><span style="width: 52%;"></span></div>
-                                52.2%
-                            </td>
-                            <td>1.1 MB/s</td>
-                            <td>2.7 MB/s</td>
-                            <td>1m 6s</td>
-                        </tr>
-                        <!-- Add more dummy rows here -->
-                    </tbody>
-                </table>
-            </div>
-            <div id="playback">
-                <div>
-                    <strong>Playback</strong>
-                    <div>Media player.mp4</div>
-                    <div>Duration: 4m 40s</div>
+                
+                <div class="stats-container">
+                    <div class="stat-item">
+                        <span class="stat-label">Status:</span>
+                        <span id="torrent-status">Idle</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Download:</span>
+                        <span id="download-speed">0 B/s</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Upload:</span>
+                        <span id="upload-speed">0 B/s</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Peers:</span>
+                        <span id="peer-count">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Progress:</span>
+                        <span id="download-progress">0%</span>
+                    </div>
                 </div>
-                <iframe width="560" height="315" 
-        src="http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4  " 
-        frameborder="0" 
-        allow="autoplay; encrypted-media" 
-        allowfullscreen>
-</iframe>
-
-            </div>
-        </div>
+            </section>
+            
+            <section id="message-section">
+                <h3>Messages</h3>
+                <div id="message-list" class="message-list"></div>
+            </section>
+        </main>
+        
+        <footer>
+            <p>Powered by WebTorrent - Pure JavaScript BitTorrent</p>
+        </footer>
     </div>
-    <script type="module" src="app.js"></script>
-    <script>
-        const hamburger = document.getElementById('hamburger');
-        const sidebar = document.getElementById('sidebar');
-
-        hamburger.addEventListener('click', () => {
-            sidebar.classList.toggle('hidden');
-        });
-    </script>
+    
+    <script src="app.js"></script>
 </body>
 
 </html>
