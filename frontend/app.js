@@ -255,101 +255,123 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     
     if (largestFile) {
-      console.log("Streaming file:", largestFile.name, formatBytes(largestFile.length));
-      addMessageToUI('System', `Streaming file: ${largestFile.name} (${formatBytes(largestFile.length)})`);
+      console.log("Selected file for download:", largestFile.name, formatBytes(largestFile.length));
+      addMessageToUI('System', `Selected file: ${largestFile.name} (${formatBytes(largestFile.length)})`);
       
-      // Simplified prioritization approach
+      // Prioritization approach for faster download
       console.log("Setting up file prioritization");
       
-      // First, deselect all files except the one we want to stream
+      // First, deselect all files except the one we want to download
       torrent.files.forEach(file => {
         if (file !== largestFile) {
           file.deselect();
         }
       });
       
-      // Select our streaming file with high priority
+      // Select our file with high priority
       largestFile.select(1);
       
-      // Get video player and status
-      const videoEl = videoPlayerEl;
+      // Get the video status element
       const videoStatusEl = document.getElementById('video-status');
       
-      // Update status
+      // Update status to show downloading (not streaming)
       if (videoStatusEl) {
-        videoStatusEl.textContent = 'Buffering video... Please wait';
+        videoStatusEl.textContent = 'Downloading video... Please wait for completion';
         videoStatusEl.style.opacity = '1';
         videoStatusEl.className = 'video-status';
       }
       
-      // Log file download progress information
-      addMessageToUI('System', `Starting video playback. Initial download: ${Math.round(largestFile.progress * 100)}%`);
-      
-      // Add event listeners for video events
-      videoEl.addEventListener('canplay', () => {
-        console.log('Video can play, enough is buffered');
-        if (videoStatusEl) {
-          videoStatusEl.textContent = 'Video ready - playback started';
-          videoStatusEl.classList.add('success');
-          setTimeout(() => {
-            if (videoStatusEl) videoStatusEl.style.opacity = '0';
-          }, 3000);
-        }
-      });
-      
-      videoEl.addEventListener('playing', () => {
-        console.log('Video is now playing');
-        if (videoStatusEl) {
-          videoStatusEl.textContent = 'Video is playing';
-          videoStatusEl.classList.add('success');
-          setTimeout(() => {
-            if (videoStatusEl) videoStatusEl.style.opacity = '0';
-          }, 3000);
-        }
-      });
-      
-      videoEl.addEventListener('waiting', () => {
-        console.log('Video is waiting for more data');
-        if (videoStatusEl) {
-          videoStatusEl.textContent = 'Buffering... Please wait';
-          videoStatusEl.style.opacity = '1';
-          videoStatusEl.classList.remove('success');
-        }
-      });
-      
-      videoEl.addEventListener('error', (e) => {
-        console.error('Video error:', e);
-        if (videoStatusEl) {
-          videoStatusEl.textContent = `Video error: ${videoEl.error ? videoEl.error.message : 'Unknown error'}`;
-          videoStatusEl.classList.add('error');
-        }
-      });
-      
-      // Use a simple and stable approach - just use the renderTo method
-      try {
-        console.log("Using renderTo method for reliable streaming");
+      // Clean any existing video player and show download progress indicator
+      const videoContainer = document.getElementById('video-container');
+      if (videoContainer) {
+        // Clear previous content
+        videoContainer.innerHTML = '';
         
-        // Use a simple approach by using renderTo, which is more reliable
-        largestFile.renderTo(videoEl, (err) => {
-          if (err) {
-            console.error("Error rendering video:", err);
-            if (videoStatusEl) {
-              videoStatusEl.textContent = `Error: ${err.message || 'Could not play video'}`;
-              videoStatusEl.classList.add('error');
+        // Create a download progress display
+        const progressDisplay = document.createElement('div');
+        progressDisplay.id = 'download-progress-display';
+        progressDisplay.className = 'download-progress-container';
+        progressDisplay.innerHTML = `
+          <div class="progress-bar-container">
+            <div class="progress-bar" id="detailed-progress-bar" style="width: 0%"></div>
+          </div>
+          <div class="progress-text" id="detailed-progress-text">0%</div>
+          <div class="file-info">Downloading: ${largestFile.name}</div>
+        `;
+        videoContainer.appendChild(progressDisplay);
+        
+        // Add download info styles if not already added
+        if (!document.getElementById('download-progress-styles')) {
+          const style = document.createElement('style');
+          style.id = 'download-progress-styles';
+          style.textContent = `
+            .download-progress-container {
+              background-color: #f8f9fa;
+              border-radius: 4px;
+              padding: 20px;
+              margin-bottom: 15px;
+              box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+              text-align: center;
             }
-            addMessageToUI('Error', `Video playback error: ${err.message}`);
-          } else {
-            console.log("Video rendering started successfully");
-          }
-        });
-      } catch (e) {
-        console.error("Exception streaming video:", e);
-        addMessageToUI('Error', `Streaming error: ${e.message}`);
+            .progress-bar-container {
+              height: 24px;
+              background-color: #e9ecef;
+              border-radius: 4px;
+              margin-bottom: 10px;
+              overflow: hidden;
+            }
+            .progress-bar {
+              height: 100%;
+              background-color: #007bff;
+              border-radius: 4px;
+              transition: width 0.3s ease;
+            }
+            .progress-text {
+              font-size: 16px;
+              font-weight: bold;
+              color: #495057;
+              margin-bottom: 5px;
+            }
+            .file-info {
+              font-size: 14px;
+              color: #6c757d;
+              word-break: break-all;
+            }
+            .action-button {
+              margin-top: 15px;
+              padding: 8px 16px;
+              background-color: #007bff;
+              color: white;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+              font-weight: bold;
+            }
+            .action-button:hover {
+              background-color: #0069d9;
+            }
+          `;
+          document.head.appendChild(style);
+        }
       }
       
-      // Handle download progress specifically for this file
+      // Handle download progress for this file
       torrent.on('download', () => {
         const progress = Math.round(largestFile.progress * 100);
+        
+        // Update the detailed progress display
+        const progressBar = document.getElementById('detailed-progress-bar');
+        const progressText = document.getElementById('detailed-progress-text');
+        
+        if (progressBar) {
+          progressBar.style.width = `${progress}%`;
+        }
+        
+        if (progressText) {
+          progressText.textContent = `${progress}%`;
+        }
+        
+        // Log progress at regular intervals
         if (progress % 5 === 0) { // Log every 5%
           console.log(`Download progress for ${largestFile.name}: ${progress}%`);
           
@@ -387,8 +409,8 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log("Processing completed file:", largestFile.name);
     addMessageToUI('System', `Processing completed file: ${largestFile.name}`);
     
-    // Get video player and status
-    const videoEl = videoPlayerEl;
+    // Get video container and status
+    const videoContainer = document.getElementById('video-container');
     const videoStatusEl = document.getElementById('video-status');
     
     // Update status
@@ -398,52 +420,96 @@ document.addEventListener("DOMContentLoaded", () => {
       videoStatusEl.className = 'video-status';
     }
     
-    // For completed torrents, we'll just create a Blob URL and use it
+    // Clean the container first to remove any previous players/elements
+    if (videoContainer) {
+      videoContainer.innerHTML = '';
+    }
+    
     try {
-      console.log("Creating Blob URL for completed file playback");
+      // AVOID WebTorrent's built-in playback methods entirely
+      // Instead, get a direct blob URL and create our own video element manually
+      console.log("Creating direct Blob URL for playback");
+      addMessageToUI('System', 'Preparing video file for playback...');
       
-      // Get the file as a Blob and create a URL
-      largestFile.getBlob((err, blob) => {
+      // Create a loading indicator while we prepare the blob
+      const loadingEl = document.createElement('div');
+      loadingEl.className = 'download-progress-container';
+      loadingEl.innerHTML = '<div>Preparing video file...</div>';
+      videoContainer.appendChild(loadingEl);
+      
+      // Use getBlobURL directly - this avoids the streaming methods that cause conflicts
+      largestFile.getBlobURL((err, url) => {
+        // Remove the loading indicator
+        if (videoContainer) {
+          videoContainer.innerHTML = '';
+        }
+        
         if (err) {
-          console.error("Error getting blob:", err);
-          addMessageToUI('Error', `Error preparing file: ${err.message}`);
+          console.error("Error getting blob URL:", err);
+          addMessageToUI('Error', `Failed to prepare video: ${err.message}`);
           
-          // Fallback to renderTo if blob fails
-          console.log("Falling back to renderTo method");
-          largestFile.renderTo(videoEl, (err2) => {
-            if (err2) {
-              console.error("Fallback renderTo also failed:", err2);
-              addMessageToUI('Error', `Fallback method also failed: ${err2.message}`);
-            }
-          });
+          // Show a manual download option as fallback
+          const downloadButton = document.createElement('button');
+          downloadButton.className = 'action-button';
+          downloadButton.textContent = 'Download File Instead';
+          downloadButton.onclick = () => {
+            // Try to get the file as a direct download
+            window.location.href = largestFile.path || '';
+          };
+          videoContainer.appendChild(downloadButton);
         } else {
-          // Create a URL from the blob
-          const url = URL.createObjectURL(blob);
           console.log("Blob URL created:", url);
           
-          // Set the video source to the blob URL
-          videoEl.src = url;
-          videoEl.load();
+          // Create our own video element manually
+          const videoEl = document.createElement('video');
+          videoEl.id = 'video-player';
+          videoEl.controls = true;
+          videoEl.autoplay = true;
+          videoEl.src = url; // Set src directly to the blob URL
+          videoEl.style.width = '100%';
+          videoEl.style.maxWidth = '100%';
+          videoEl.style.backgroundColor = '#000';
+          videoEl.style.borderRadius = '4px';
+          videoEl.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.2)';
+          videoEl.style.minHeight = '360px';
           
-          // Try to autoplay the video (may be blocked by browser)
+          // Add event listeners
+          videoEl.addEventListener('canplay', () => {
+            console.log('Video can play now');
+            if (videoStatusEl) {
+              videoStatusEl.textContent = 'Video ready - playback started';
+              videoStatusEl.classList.add('success');
+              setTimeout(() => {
+                if (videoStatusEl) videoStatusEl.style.opacity = '0';
+              }, 3000);
+            }
+          });
+          
+          videoEl.addEventListener('error', (e) => {
+            console.error('Video playback error:', e);
+            addMessageToUI('Error', `Video playback error: ${videoEl.error ? videoEl.error.message : 'Unknown error'}`);
+          });
+          
+          // Clean up the blob URL when done
+          videoEl.addEventListener('ended', () => {
+            URL.revokeObjectURL(url);
+          });
+          
+          // Add to container
+          videoContainer.appendChild(videoEl);
+          
+          // Update reference to video player
+          videoPlayerEl = videoEl;
+          
+          // Try to play (might be blocked by autoplay policy)
+          videoEl.load();
           videoEl.play().catch(e => {
             console.warn("Autoplay prevented:", e);
             addMessageToUI('System', 'Please click play to start video');
           });
           
-          console.log("Completed video playback started");
-          if (videoStatusEl) {
-            videoStatusEl.textContent = 'Video ready - playback started';
-            videoStatusEl.classList.add('success');
-            setTimeout(() => {
-              if (videoStatusEl) videoStatusEl.style.opacity = '0';
-            }, 3000);
-          }
-          
-          // Clean up the URL when the video is unloaded
-          videoEl.addEventListener('unload', () => {
-            URL.revokeObjectURL(url);
-          });
+          console.log("Video element created and added to page");
+          addMessageToUI('System', 'Video player ready! You can now watch the video.');
         }
       });
     } catch (e) {
