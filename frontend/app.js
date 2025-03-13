@@ -851,8 +851,17 @@ document.addEventListener("DOMContentLoaded", () => {
             URL.revokeObjectURL(url);
           });
           
-          // Create enhanced video player with custom controls instead of adding directly
-          const enhancedPlayer = createEnhancedVideoPlayer(videoEl, videoContainer);
+          // Create enhanced video player with custom controls
+          try {
+            const enhancedPlayer = createEnhancedVideoPlayer(videoEl, videoContainer);
+            console.log("Enhanced video player created successfully");
+          } catch (error) {
+            console.error("Failed to create enhanced player, falling back to basic player:", error);
+            // Fallback to basic player if enhanced player fails
+            videoContainer.innerHTML = '';
+            videoEl.controls = true; // Enable native controls as fallback
+            videoContainer.appendChild(videoEl);
+          }
           
           // Update reference to video player
           videoPlayerEl = videoEl;
@@ -1093,8 +1102,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const videoWrapper = document.createElement('div');
     videoWrapper.className = 'video-wrapper';
     
-    // Move the video element into our wrapper
-    videoEl.parentNode.removeChild(videoEl);
+    // Add the video element to our wrapper
+    // Check if video element is already in the DOM
+    if (videoEl.parentNode) {
+      videoEl.parentNode.removeChild(videoEl);
+    }
     videoWrapper.appendChild(videoEl);
     
     // Create custom controls container
