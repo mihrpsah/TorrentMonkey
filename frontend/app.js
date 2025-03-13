@@ -819,7 +819,7 @@ document.addEventListener("DOMContentLoaded", () => {
           // Create our own video element manually
           const videoEl = document.createElement('video');
           videoEl.id = 'video-player';
-          videoEl.controls = true;
+          videoEl.controls = false; // We'll use our custom controls
           videoEl.autoplay = true;
           videoEl.src = url; // Set src directly to the blob URL
           videoEl.style.width = '100%';
@@ -851,8 +851,8 @@ document.addEventListener("DOMContentLoaded", () => {
             URL.revokeObjectURL(url);
           });
           
-          // Add to container
-          videoContainer.appendChild(videoEl);
+          // Create enhanced video player with custom controls instead of adding directly
+          const enhancedPlayer = createEnhancedVideoPlayer(videoEl, videoContainer);
           
           // Update reference to video player
           videoPlayerEl = videoEl;
@@ -1079,6 +1079,350 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     `;
     document.head.appendChild(style);
+  }
+  
+  // Create enhanced video player with custom controls
+  function createEnhancedVideoPlayer(videoEl, container) {
+    // Make sure we have references to the video and container
+    if (!videoEl || !container) {
+      console.error('Cannot create enhanced video player - missing video element or container');
+      return;
+    }
+    
+    // Create a wrapper for the video and controls
+    const videoWrapper = document.createElement('div');
+    videoWrapper.className = 'video-wrapper';
+    
+    // Move the video element into our wrapper
+    videoEl.parentNode.removeChild(videoEl);
+    videoWrapper.appendChild(videoEl);
+    
+    // Create custom controls container
+    const controlsContainer = document.createElement('div');
+    controlsContainer.className = 'custom-controls';
+    
+    // Play/Pause button
+    const playPauseBtn = document.createElement('button');
+    playPauseBtn.className = 'control-button play-pause';
+    playPauseBtn.innerHTML = '<i class="play-icon">▶</i>';
+    playPauseBtn.title = 'Play/Pause';
+    
+    // Progress bar
+    const progressContainer = document.createElement('div');
+    progressContainer.className = 'progress-container';
+    
+    const progressBar = document.createElement('div');
+    progressBar.className = 'progress-bar';
+    
+    const loadProgress = document.createElement('div');
+    loadProgress.className = 'load-progress';
+    
+    const playProgress = document.createElement('div');
+    playProgress.className = 'play-progress';
+    
+    progressBar.appendChild(loadProgress);
+    progressBar.appendChild(playProgress);
+    progressContainer.appendChild(progressBar);
+    
+    // Time display
+    const timeDisplay = document.createElement('div');
+    timeDisplay.className = 'time-display';
+    timeDisplay.textContent = '0:00 / 0:00';
+    
+    // Volume control
+    const volumeContainer = document.createElement('div');
+    volumeContainer.className = 'volume-container';
+    
+    const volumeButton = document.createElement('button');
+    volumeButton.className = 'control-button volume';
+    volumeButton.innerHTML = '<i class="volume-icon">🔊</i>';
+    volumeButton.title = 'Mute/Unmute';
+    
+    const volumeSlider = document.createElement('input');
+    volumeSlider.type = 'range';
+    volumeSlider.min = 0;
+    volumeSlider.max = 1;
+    volumeSlider.step = 0.1;
+    volumeSlider.value = 1;
+    volumeSlider.className = 'volume-slider';
+    
+    volumeContainer.appendChild(volumeButton);
+    volumeContainer.appendChild(volumeSlider);
+    
+    // Playback speed control
+    const speedButton = document.createElement('button');
+    speedButton.className = 'control-button speed';
+    speedButton.textContent = '1x';
+    speedButton.title = 'Playback Speed';
+    
+    // Picture-in-Picture button
+    const pipButton = document.createElement('button');
+    pipButton.className = 'control-button pip';
+    pipButton.innerHTML = '<i class="pip-icon">⤧</i>';
+    pipButton.title = 'Picture-in-Picture';
+    
+    // Fullscreen button
+    const fullscreenButton = document.createElement('button');
+    fullscreenButton.className = 'control-button fullscreen';
+    fullscreenButton.innerHTML = '<i class="fullscreen-icon">⤢</i>';
+    fullscreenButton.title = 'Fullscreen';
+    
+    // Add all elements to the controls container
+    controlsContainer.appendChild(playPauseBtn);
+    controlsContainer.appendChild(progressContainer);
+    controlsContainer.appendChild(timeDisplay);
+    controlsContainer.appendChild(volumeContainer);
+    controlsContainer.appendChild(speedButton);
+    controlsContainer.appendChild(pipButton);
+    controlsContainer.appendChild(fullscreenButton);
+    
+    // Add controls to wrapper
+    videoWrapper.appendChild(controlsContainer);
+    
+    // Add the wrapper to the container
+    container.appendChild(videoWrapper);
+    
+    // Styling for the custom controls
+    const style = document.createElement('style');
+    style.textContent = `
+      .video-wrapper {
+        position: relative;
+        width: 100%;
+        background-color: #000;
+        border-radius: 4px;
+        overflow: hidden;
+      }
+      
+      .custom-controls {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 40px;
+        background-color: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        padding: 0 10px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+      
+      .video-wrapper:hover .custom-controls {
+        opacity: 1;
+      }
+      
+      .control-button {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 16px;
+        cursor: pointer;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin: 0 5px;
+        border-radius: 4px;
+      }
+      
+      .control-button:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+      }
+      
+      .progress-container {
+        flex-grow: 1;
+        height: 10px;
+        margin: 0 10px;
+        cursor: pointer;
+      }
+      
+      .progress-bar {
+        height: 4px;
+        width: 100%;
+        background-color: rgba(255, 255, 255, 0.2);
+        position: relative;
+        border-radius: 2px;
+      }
+      
+      .load-progress {
+        height: 100%;
+        width: 0;
+        background-color: rgba(255, 255, 255, 0.4);
+        position: absolute;
+        border-radius: 2px;
+      }
+      
+      .play-progress {
+        height: 100%;
+        width: 0;
+        background-color: #007bff;
+        position: absolute;
+        border-radius: 2px;
+      }
+      
+      .time-display {
+        color: white;
+        font-size: 12px;
+        min-width: 80px;
+        text-align: center;
+      }
+      
+      .volume-container {
+        display: flex;
+        align-items: center;
+      }
+      
+      .volume-slider {
+        width: 0;
+        transition: width 0.3s ease;
+        opacity: 0;
+      }
+      
+      .volume-container:hover .volume-slider {
+        width: 60px;
+        opacity: 1;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    // Event listeners for the controls
+    
+    // Play/Pause
+    playPauseBtn.addEventListener('click', () => {
+      if (videoEl.paused) {
+        videoEl.play();
+        playPauseBtn.innerHTML = '<i class="play-icon">❙❙</i>';
+      } else {
+        videoEl.pause();
+        playPauseBtn.innerHTML = '<i class="play-icon">▶</i>';
+      }
+    });
+    
+    // Update progress bar
+    videoEl.addEventListener('timeupdate', () => {
+      const currentTime = videoEl.currentTime;
+      const duration = videoEl.duration;
+      
+      // Update play progress
+      if (duration > 0) {
+        playProgress.style.width = `${(currentTime / duration) * 100}%`;
+      }
+      
+      // Update time display
+      timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
+    });
+    
+    // Update loaded progress
+    videoEl.addEventListener('progress', () => {
+      if (videoEl.buffered.length > 0) {
+        const bufferedEnd = videoEl.buffered.end(videoEl.buffered.length - 1);
+        loadProgress.style.width = `${(bufferedEnd / videoEl.duration) * 100}%`;
+      }
+    });
+    
+    // Click on progress bar to seek
+    progressContainer.addEventListener('click', (e) => {
+      const rect = progressBar.getBoundingClientRect();
+      const pos = (e.clientX - rect.left) / rect.width;
+      videoEl.currentTime = pos * videoEl.duration;
+    });
+    
+    // Volume controls
+    volumeButton.addEventListener('click', () => {
+      videoEl.muted = !videoEl.muted;
+      volumeButton.innerHTML = videoEl.muted ? 
+        '<i class="volume-icon">🔇</i>' : 
+        '<i class="volume-icon">🔊</i>';
+      volumeSlider.value = videoEl.muted ? 0 : videoEl.volume;
+    });
+    
+    volumeSlider.addEventListener('input', () => {
+      videoEl.volume = volumeSlider.value;
+      videoEl.muted = (volumeSlider.value === 0);
+      volumeButton.innerHTML = (volumeSlider.value === 0) ? 
+        '<i class="volume-icon">🔇</i>' : 
+        '<i class="volume-icon">🔊</i>';
+    });
+    
+    // Playback speed
+    const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2];
+    let currentSpeedIndex = 2; // Default 1x
+    
+    speedButton.addEventListener('click', () => {
+      currentSpeedIndex = (currentSpeedIndex + 1) % speeds.length;
+      const newSpeed = speeds[currentSpeedIndex];
+      videoEl.playbackRate = newSpeed;
+      speedButton.textContent = `${newSpeed}x`;
+    });
+    
+    // Picture in Picture
+    pipButton.addEventListener('click', () => {
+      if (document.pictureInPictureElement) {
+        document.exitPictureInPicture().catch(err => {
+          console.error('Failed to exit Picture-in-Picture mode:', err);
+        });
+      } else {
+        if (document.pictureInPictureEnabled) {
+          videoEl.requestPictureInPicture().catch(err => {
+            console.error('Failed to enter Picture-in-Picture mode:', err);
+          });
+        } else {
+          addMessageToUI('Error', 'Picture-in-Picture mode is not supported in your browser');
+        }
+      }
+    });
+    
+    // Fullscreen
+    fullscreenButton.addEventListener('click', () => {
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(err => {
+          console.error('Failed to exit fullscreen mode:', err);
+        });
+      } else {
+        videoWrapper.requestFullscreen().catch(err => {
+          console.error('Failed to enter fullscreen mode:', err);
+        });
+      }
+    });
+    
+    // Play/Pause when clicking on video
+    videoEl.addEventListener('click', () => {
+      if (videoEl.paused) {
+        videoEl.play();
+        playPauseBtn.innerHTML = '<i class="play-icon">❙❙</i>';
+      } else {
+        videoEl.pause();
+        playPauseBtn.innerHTML = '<i class="play-icon">▶</i>';
+      }
+    });
+    
+    // Update play/pause button state based on video events
+    videoEl.addEventListener('play', () => {
+      playPauseBtn.innerHTML = '<i class="play-icon">❙❙</i>';
+    });
+    
+    videoEl.addEventListener('pause', () => {
+      playPauseBtn.innerHTML = '<i class="play-icon">▶</i>';
+    });
+    
+    videoEl.addEventListener('ended', () => {
+      playPauseBtn.innerHTML = '<i class="play-icon">▶</i>';
+    });
+    
+    // Helper function to format time in MM:SS
+    function formatTime(seconds) {
+      const minutes = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+    }
+    
+    // Return the enhanced video player
+    return {
+      videoElement: videoEl,
+      wrapper: videoWrapper,
+      controls: controlsContainer
+    };
   }
   
   // Initialize everything
