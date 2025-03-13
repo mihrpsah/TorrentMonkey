@@ -69,6 +69,125 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
   
+  // Generate thumbnails from a video file using HTML5 Canvas
+  function generateThumbnails(file, numThumbnails = 5) {
+    return new Promise((resolve) => {
+      // Create a temporary video element for thumbnail generation
+      const videoEl = document.createElement('video');
+      videoEl.style.display = 'none';
+      document.body.appendChild(videoEl);
+      
+      // Create a canvas for capturing frames
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      // Create object URL for the file
+      const objectURL = URL.createObjectURL(file);
+      videoEl.src = objectURL;
+      
+      // Array to store thumbnail data
+      const thumbnails = [];
+      
+      // Load the video metadata
+      videoEl.addEventListener('loadedmetadata', () => {
+        // Set canvas dimensions based on video
+        canvas.width = videoEl.videoWidth;
+        canvas.height = videoEl.videoHeight;
+        
+        // Check if we have a valid duration
+        if (!videoEl.duration || isNaN(videoEl.duration) || videoEl.duration === Infinity) {
+          console.error('Could not determine video duration for thumbnails');
+          cleanup();
+          resolve([]);
+          return;
+        }
+        
+        console.log(`Video duration for thumbnails: ${videoEl.duration} seconds`);
+        addMessageToUI('System', 'Generating video thumbnails...');
+        
+        // Function to capture a frame at a specific time
+        const captureFrame = (time) => {
+          return new Promise((resolveFrame) => {
+            // Set the video to the specific time
+            videoEl.currentTime = time;
+            
+            // Once the video is seeked to the time, capture the frame
+            videoEl.addEventListener('seeked', function onSeeked() {
+              // Remove the event listener to avoid multiple calls
+              videoEl.removeEventListener('seeked', onSeeked);
+              
+              // Draw the current frame to the canvas
+              ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+              
+              // Convert the canvas to a data URL (image)
+              const thumbnailUrl = canvas.toDataURL('image/jpeg', 0.7);
+              
+              // Store both the URL and the timestamp
+              thumbnails.push({
+                url: thumbnailUrl,
+                time: time,
+                formattedTime: formatDuration(time)
+              });
+              
+              // Resolve this frame
+              resolveFrame();
+            });
+          });
+        };
+        
+        // Capture frames sequentially
+        const captureFrames = async () => {
+          // Calculate time points for thumbnails (evenly distributed)
+          const timePoints = [];
+          for (let i = 1; i <= numThumbnails; i++) {
+            // Skip the very beginning and very end
+            const timePoint = (videoEl.duration * i) / (numThumbnails + 1);
+            timePoints.push(timePoint);
+          }
+          
+          // Capture each frame sequentially
+          for (const time of timePoints) {
+            await captureFrame(time);
+          }
+          
+          // Clean up and resolve with all thumbnails
+          cleanup();
+          console.log(`Generated ${thumbnails.length} thumbnails`);
+          resolve(thumbnails);
+        };
+        
+        // Start capturing frames
+        captureFrames();
+      });
+      
+      // Handle errors
+      videoEl.addEventListener('error', () => {
+        console.error('Error loading video for thumbnail generation');
+        cleanup();
+        resolve([]);
+      });
+      
+      // Cleanup function
+      function cleanup() {
+        if (document.body.contains(videoEl)) {
+          document.body.removeChild(videoEl);
+        }
+        URL.revokeObjectURL(objectURL);
+      }
+      
+      // Set a timeout in case the video never loads
+      setTimeout(() => {
+        if (document.body.contains(videoEl)) {
+          cleanup();
+          resolve([]);
+        }
+      }, 20000); // Longer timeout for thumbnail generation
+      
+      // Try to load the video
+      videoEl.load();
+    });
+  }
+  
   // Display media information in the UI
   function displayMediaInfo(metadata, thumbnails) {
     if (!metadata) return;
@@ -131,12 +250,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (thumbnails && thumbnails.length > 0) {
       thumbnailsHTML = '<div class="media-thumbnails">';
       thumbnailsHTML += '<h3>Preview Thumbnails</h3>';
+      thumbnailsHTML += '<p class="thumbnail-help">Click on any thumbnail to jump to that position in the video</p>';
       thumbnailsHTML += '<div class="thumbnail-container">';
       
-      thumbnails.forEach((thumbnailUrl, index) => {
-        thumbnailsHTML += `<div class="thumbnail">
-          <img src="${thumbnailUrl}" alt="Thumbnail ${index + 1}">
-          <div class="thumbnail-caption">Scene ${index + 1}</div>
+      thumbnails.forEach((thumbnail, index) => {
+        thumbnailsHTML += `<div class="thumbnail" data-time="${thumbnail.time}">
+          <img src="${thumbnail.url}" alt="Thumbnail ${index + 1}">
+          <div class="thumbnail-caption">Scene ${index + 1} - ${thumbnail.formattedTime}</div>
         </div>`;
       });
       
@@ -145,6 +265,26 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // Set the HTML
     mediaInfoContainer.innerHTML = metadataHTML + thumbnailsHTML;
+    
+    // Add click event handlers for thumbnails
+    if (thumbnails && thumbnails.length > 0) {
+      const thumbnailElements = mediaInfoContainer.querySelectorAll('.thumbnail');
+      thumbnailElements.forEach(thumbnail => {
+        thumbnail.addEventListener('click', function() {
+          const time = parseFloat(this.getAttribute('data-time'));
+          if (!isNaN(time)) {
+            const videoPlayer = document.getElementById('video-player');
+            if (videoPlayer) {
+              videoPlayer.currentTime = time;
+              videoPlayer.play().catch(e => console.warn('Could not autoplay after seek:', e));
+              console.log(`Seeked to ${formatDuration(time)}`);
+              addMessageToUI('System', `Seeked to ${formatDuration(time)}`);
+            }
+          }
+        });
+        thumbnail.style.cursor = 'pointer';
+      });
+    }
     
     // Add CSS styles if not already added
     if (!document.getElementById('media-info-styles')) {
@@ -182,6 +322,13 @@ document.addEventListener("DOMContentLoaded", () => {
           width: 40%;
         }
         
+        .thumbnail-help {
+          font-size: 14px;
+          color: #6c757d;
+          margin-bottom: 10px;
+          font-style: italic;
+        }
+        
         .thumbnail-container {
           display: flex;
           flex-wrap: wrap;
@@ -193,6 +340,12 @@ document.addEventListener("DOMContentLoaded", () => {
         .thumbnail {
           width: 160px;
           text-align: center;
+          transition: transform 0.2s ease;
+        }
+        
+        .thumbnail:hover {
+          transform: scale(1.05);
+          box-shadow: 0 3px 7px rgba(0,0,0,0.3);
         }
         
         .thumbnail img {
@@ -711,11 +864,22 @@ document.addEventListener("DOMContentLoaded", () => {
             // Get file as blob for analysis
             largestFile.getBlob((err, blob) => {
               if (!err && blob) {
-                extractBasicMediaInfo(blob).then(metadata => {
+                // Start both operations in parallel
+                Promise.all([
+                  extractBasicMediaInfo(blob),
+                  generateThumbnails(blob)
+                ]).then(([metadata, thumbnails]) => {
                   if (metadata) {
                     console.log("Media analysis complete:", metadata);
                     addMessageToUI('System', 'Media analysis complete!');
-                    displayMediaInfo(metadata, []); // No thumbnails with basic analysis
+                    
+                    // Display metadata and thumbnails
+                    displayMediaInfo(metadata, thumbnails);
+                    
+                    if (thumbnails && thumbnails.length > 0) {
+                      console.log(`Generated ${thumbnails.length} thumbnails`);
+                      addMessageToUI('System', `Generated ${thumbnails.length} video preview thumbnails`);
+                    }
                   }
                 }).catch(error => {
                   console.error("Error during media analysis:", error);
